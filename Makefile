@@ -5,6 +5,7 @@ CONTENTS = $(APP_BUNDLE)/Contents
 MACOS_DIR = $(CONTENTS)/MacOS
 RESOURCES_DIR = $(CONTENTS)/Resources
 INSTALL_DIR = /Applications
+BINARY_NAME = PhotoOrganizer
 
 .PHONY: all build app clean run dev install uninstall test
 
@@ -15,7 +16,7 @@ build:
 
 app: build
 	mkdir -p $(MACOS_DIR) $(RESOURCES_DIR)
-	cp $(BUILD_DIR)/$(APP_NAME) $(MACOS_DIR)/$(APP_NAME)
+	cp $(BUILD_DIR)/$(BINARY_NAME) $(MACOS_DIR)/$(BINARY_NAME)
 	cp Resources/Info.plist $(CONTENTS)/Info.plist
 	cp config.json $(RESOURCES_DIR)/config.json
 	@echo "Built: $(APP_BUNDLE)"
@@ -28,7 +29,7 @@ run: app
 	open $(APP_BUNDLE)
 
 dev: app
-	pkill -x $(APP_NAME) 2>/dev/null || true
+	pkill -x $(BINARY_NAME) 2>/dev/null || true
 	sleep 1
 	open $(APP_BUNDLE)
 

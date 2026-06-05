@@ -35,7 +35,7 @@ make build
 make install
 ```
 
-`/Applications/PhotoOrganizer.app` にインストールされます。
+`/Applications/PhotoOrganizer-mac.app` にインストールされます。
 
 ## アンインストール
 
@@ -45,7 +45,7 @@ make uninstall
 
 ## 使い方
 
-1. `/Applications/PhotoOrganizer.app` をダブルクリックで起動
+1. `/Applications/PhotoOrganizer-mac.app` をダブルクリックで起動
 2. メニューバーにアイコンが表示される
 3. SDカードを接続すると自動でウィンドウが開く
 4. イベント名を入力して「処理開始」をクリック
@@ -59,17 +59,17 @@ make uninstall
 
 **優先順位:**
 
-1. `~/Library/Application Support/PhotoOrganizer/config.json` （ユーザー設定・推奨）
-2. `/Applications/PhotoOrganizer.app/Contents/Resources/config.json` （デフォルト）
+1. `~/Library/Application Support/PhotoOrganizer-mac/config.json` （ユーザー設定・推奨）
+2. `/Applications/PhotoOrganizer-mac.app/Contents/Resources/config.json` （デフォルト）
 
 ### カスタマイズ方法
 
 ```bash
 # 設定ディレクトリを作成
-mkdir -p ~/Library/Application\ Support/PhotoOrganizer
+mkdir -p ~/Library/Application\ Support/PhotoOrganizer-mac
 
 # 設定ファイルを作成（例）
-cat > ~/Library/Application\ Support/PhotoOrganizer/config.json << 'EOF'
+cat > ~/Library/Application\ Support/PhotoOrganizer-mac/config.json << 'EOF'
 {
   "RawExtensions": [".arw", ".cr2", ".cr3", ".nef", ".dng", ".raf", ".rw2", ".orf", ".pef"]
 }
@@ -90,7 +90,7 @@ EOF
 ## 状態保存場所
 
 ```text
-~/Library/Application Support/PhotoOrganizer/state.json
+~/Library/Application Support/PhotoOrganizer-mac/state.json
 ```
 
 以下の状態が保存されます：

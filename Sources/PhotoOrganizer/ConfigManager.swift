@@ -32,7 +32,7 @@ class ConfigManager {
     static func getConfigPath() -> String {
         // 1. ユーザー設定ディレクトリを優先（編集可能）
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let userConfigPath = appSupport.appendingPathComponent("PhotoOrganizer/config.json").path
+        let userConfigPath = appSupport.appendingPathComponent("PhotoOrganizer-mac/config.json").path
         if FileManager.default.fileExists(atPath: userConfigPath) {
             return userConfigPath
         }
@@ -53,6 +53,6 @@ class ConfigManager {
 
     static func getUserConfigPath() -> String {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("PhotoOrganizer/config.json").path
+        return appSupport.appendingPathComponent("PhotoOrganizer-mac/config.json").path
     }
 }
