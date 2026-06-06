@@ -262,4 +262,143 @@ struct EdgeCaseTests {
         #expect(scanner.getMediaKind("IMG_0001") == nil)
         #expect(scanner.getMediaKind("noextension") == nil)
     }
+
+    // MARK: - Unicode・国際化テスト
+
+    @Test func testUnicodeFileName() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UnicodeFileNameTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let unicodeNames = [
+            "写真_001.JPG",
+            "写真_002.JPG",
+            "IMG_旅行.JPG",
+        ]
+
+        for name in unicodeNames {
+            try "content".write(to: srcDir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: "UnicodeTest") { _, _ in }
+
+        #expect(result.jpg == unicodeNames.count)
+        #expect(result.failed == 0)
+    }
+
+    @Test func testJapaneseEventName() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("JapaneseEventTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "content".write(to: srcDir.appendingPathComponent("IMG_0001.JPG"), atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: "旅行_2024") { _, _ in }
+
+        #expect(result.basePath.contains("旅行_2024"))
+    }
+
+    @Test func testLongEventName() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LongEventTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "content".write(to: srcDir.appendingPathComponent("IMG_0001.JPG"), atomically: true, encoding: .utf8)
+
+        let longName = String(repeating: "A", count: 200)
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: longName) { _, _ in }
+
+        #expect(result.basePath.contains(longName))
+    }
+
+    @Test func testSingleCharacterFileName() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SingleCharTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "content".write(to: srcDir.appendingPathComponent("a.JPG"), atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: "Test") { _, _ in }
+
+        #expect(result.jpg == 1)
+        #expect(result.failed == 0)
+    }
+
+    @Test func testFileNameWithSpaces() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpacesTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "content".write(to: srcDir.appendingPathComponent("IMG 0001 (1).JPG"), atomically: true, encoding: .utf8)
+        try "content".write(to: srcDir.appendingPathComponent("IMG 0002 (copy).JPG"), atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: "Test") { _, _ in }
+
+        #expect(result.jpg == 2)
+        #expect(result.failed == 0)
+    }
+
+    @Test func testManyFilesInBatch() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ManyFilesTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileCount = 50
+        for i in 1...fileCount {
+            let name = String(format: "IMG_%04d.JPG", i)
+            try "content_\(i)".write(to: srcDir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        #expect(files.count == fileCount)
+
+        let result = await processor.processFiles(files, destination: dstDir.path, eventName: "ManyFiles") { _, _ in }
+
+        #expect(result.jpg == fileCount)
+        #expect(result.failed == 0)
+    }
+
+    @Test func testSameExifDateDifferentEvents() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SameDateDiffEventTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("src")
+        let dstDir = tempDir.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let jpgFile = srcDir.appendingPathComponent("IMG_0001.JPG").path
+        #expect(TestImageHelper.createJPEGWithExif(at: jpgFile, dateTimeOriginal: "2023:03:15 14:30:00"))
+
+        let files = [jpgFile]
+
+        let result1 = await processor.processFiles(files, destination: dstDir.path, eventName: "Event1") { _, _ in }
+        let result2 = await processor.processFiles(files, destination: dstDir.path, eventName: "Event2") { _, _ in }
+
+        #expect(result1.basePath.contains("2023-03-15_Event1"))
+        #expect(result2.basePath.contains("2023-03-15_Event2"))
+        #expect(result1.basePath != result2.basePath)
+    }
 }

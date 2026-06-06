@@ -251,4 +251,124 @@ struct DataSafetyTests {
         #expect(result.failed == 0)
         #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/JPG/IMG_0001.JPG"))
     }
+
+    // MARK: - コンテンツ完全性テスト
+
+    @Test func testCopiedContentMatchesSource() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ContentMatchTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("SD_CARD")
+        let destDir = tempDir.appendingPathComponent("DESTINATION")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let dcimDir = srcDir.appendingPathComponent("DCIM")
+        try FileManager.default.createDirectory(at: dcimDir, withIntermediateDirectories: true)
+
+        let contents = [
+            "IMG_0001.JPG": "photo data with special chars: \n\t\u{00}",
+            "IMG_0002.ARW": "raw sensor data \u{0001}\u{0002}",
+            "VID_0001.MP4": "video binary data simulation"
+        ]
+
+        for (name, content) in contents {
+            try content.write(to: dcimDir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: destDir.path, eventName: "ContentMatch") { _, _ in }
+
+        #expect(result.failed == 0)
+
+        for (name, expectedContent) in contents {
+            let kind = scanner.getMediaKind(dcimDir.appendingPathComponent(name).path) ?? ""
+            let copiedFile = "\(result.basePath)/\(kind)/\(name)"
+            let copiedContent = try String(contentsOfFile: copiedFile, encoding: .utf8)
+            #expect(copiedContent == expectedContent, "Content mismatch for \(name)")
+        }
+    }
+
+    @Test func testMultipleRunsPreserveData() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MultiRunSafetyTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("SD_CARD")
+        let destDir = tempDir.appendingPathComponent("DESTINATION")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let dcimDir = srcDir.appendingPathComponent("DCIM")
+        try FileManager.default.createDirectory(at: dcimDir, withIntermediateDirectories: true)
+
+        let srcFile = dcimDir.appendingPathComponent("IMG_0001.JPG")
+        let originalContent = "precious data"
+        try originalContent.write(to: srcFile, atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+
+        for _ in 1...5 {
+            let _ = await processor.processFiles(files, destination: destDir.path, eventName: "MultiRun") { _, _ in }
+        }
+
+        let srcContent = try String(contentsOf: srcFile, encoding: .utf8)
+        #expect(srcContent == originalContent)
+
+        let srcAttrs = try FileManager.default.attributesOfItem(atPath: srcFile.path)
+        #expect((srcAttrs[.size] as! Int) == originalContent.utf8.count)
+    }
+
+    @Test func testDestinationAutoCreated() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DestAutoCreateTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("SD_CARD")
+        let destDir = tempDir.appendingPathComponent("DEEP/NESTED/DESTINATION")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let dcimDir = srcDir.appendingPathComponent("DCIM")
+        try FileManager.default.createDirectory(at: dcimDir, withIntermediateDirectories: true)
+        try "content".write(to: dcimDir.appendingPathComponent("IMG_0001.JPG"), atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: destDir.path, eventName: "AutoCreate") { _, _ in }
+
+        #expect(result.failed == 0)
+        #expect(FileManager.default.fileExists(atPath: result.basePath))
+    }
+
+    @Test func testAllFileTypesClassifiedCorrectly() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClassifyTest_\(UUID().uuidString)")
+        let srcDir = tempDir.appendingPathComponent("SD_CARD")
+        let destDir = tempDir.appendingPathComponent("DESTINATION")
+        try FileManager.default.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let dcimDir = srcDir.appendingPathComponent("DCIM")
+        try FileManager.default.createDirectory(at: dcimDir, withIntermediateDirectories: true)
+
+        try "raw".write(to: dcimDir.appendingPathComponent("IMG_0001.ARW"), atomically: true, encoding: .utf8)
+        try "raw".write(to: dcimDir.appendingPathComponent("IMG_0002.CR2"), atomically: true, encoding: .utf8)
+        try "raw".write(to: dcimDir.appendingPathComponent("IMG_0003.NEF"), atomically: true, encoding: .utf8)
+        try "jpg".write(to: dcimDir.appendingPathComponent("IMG_0001.JPG"), atomically: true, encoding: .utf8)
+        try "jpg".write(to: dcimDir.appendingPathComponent("IMG_0002.JPEG"), atomically: true, encoding: .utf8)
+        try "mp4".write(to: dcimDir.appendingPathComponent("VID_0001.MP4"), atomically: true, encoding: .utf8)
+        try "mov".write(to: dcimDir.appendingPathComponent("VID_0002.MOV"), atomically: true, encoding: .utf8)
+
+        let files = scanner.enumerateMediaFiles(root: srcDir.path)
+        let result = await processor.processFiles(files, destination: destDir.path, eventName: "Classify") { _, _ in }
+
+        #expect(result.raw == 3)
+        #expect(result.jpg == 2)
+        #expect(result.mp4 == 2)
+        #expect(result.failed == 0)
+        #expect(result.skipUnsupported == 0)
+
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/RAW/IMG_0001.ARW"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/RAW/IMG_0002.CR2"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/RAW/IMG_0003.NEF"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/JPG/IMG_0001.JPG"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/JPG/IMG_0002.JPEG"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/MP4/VID_0001.MP4"))
+        #expect(FileManager.default.fileExists(atPath: "\(result.basePath)/MP4/VID_0002.MOV"))
+    }
 }
