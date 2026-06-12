@@ -18,7 +18,7 @@ struct PhotoOrganizerApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     var statusItem: NSStatusItem?
-    var mainWindow: NSWindow?
+    var trackedWindow: NSWindow?
     var windowDelegate: WindowDelegate?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -31,8 +31,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if appState.startInBackground {
             NSApp.setActivationPolicy(.accessory)
             hideAllWindows()
-        } else {
-            showWindow()
         }
     }
 
@@ -66,34 +64,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showWindow() {
         NSApp.setActivationPolicy(.regular)
 
-        if mainWindow == nil {
-            let contentView = ContentView().environmentObject(appState)
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.contentView = NSHostingView(rootView: contentView)
-            window.title = "Photo Organizer (Mac)"
-            window.isReleasedWhenClosed = false
-            window.center()
-
-            let delegate = WindowDelegate { [weak self] in
-                self?.hideWindow()
+        if trackedWindow == nil {
+            if let window = findWindowGroupWindow() {
+                let delegate = WindowDelegate { [weak self] in
+                    self?.hideWindow()
+                }
+                window.delegate = delegate
+                self.windowDelegate = delegate
+                self.trackedWindow = window
             }
-            window.delegate = delegate
-            self.windowDelegate = delegate
-
-            mainWindow = window
         }
 
-        mainWindow?.makeKeyAndOrderFront(nil)
+        trackedWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func findWindowGroupWindow() -> NSWindow? {
+        NSApp.windows.first { $0.contentView is NSHostingView<ContentView> }
+    }
+
     private func hideWindow() {
-        mainWindow?.orderOut(nil)
+        trackedWindow?.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
     }
 

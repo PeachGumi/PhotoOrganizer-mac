@@ -84,8 +84,5 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 820, minHeight: 600)
-        .task {
-            await appState.initializeSdSelection()
-        }
     }
 }

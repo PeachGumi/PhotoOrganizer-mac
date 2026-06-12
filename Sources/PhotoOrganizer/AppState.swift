@@ -21,6 +21,7 @@ class AppState: ObservableObject {
     var onShowWindow: (() -> Void)?
 
     private var cancellables = Set<AnyCancellable>()
+    private var logLines: [String] = []
     private let maxLogLines = 1000
 
     init() {
@@ -93,12 +94,13 @@ class AppState: ObservableObject {
 
     func appendLog(_ line: String) {
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-        logText += "\(timestamp) \(line)\n"
+        logLines.append("\(timestamp) \(line)")
 
-        let lines = logText.components(separatedBy: "\n")
-        if lines.count > maxLogLines {
-            logText = lines.suffix(maxLogLines).joined(separator: "\n")
+        if logLines.count > maxLogLines {
+            logLines.removeFirst(logLines.count - maxLogLines)
         }
+
+        logText = logLines.joined(separator: "\n")
     }
 
     func selectDestination() {
@@ -139,10 +141,7 @@ class AppState: ObservableObject {
     func handleSDDetected(_ path: String) {
         appendLog("SDカード検出: \(path)")
         Task {
-            let success = await selectSdAndScan(path: path, autoDetected: true)
-            if success {
-                onShowWindow?()
-            }
+            await selectSdAndScan(path: path, autoDetected: true)
         }
     }
 

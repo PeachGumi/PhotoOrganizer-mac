@@ -15,6 +15,7 @@ class SDCardDetector: NSObject, SDCardDetecting {
     private let systemPaths: Set<String> = ["/", "/System/Volumes/Data"]
 
     func start(onDetected: @escaping (String) -> Void) {
+        stop()
         self.onSDDetected = onDetected
 
         let nc = NSWorkspace.shared.notificationCenter
